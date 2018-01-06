@@ -12,6 +12,7 @@
 * For commercial purposes, please contact the author.
 *
 * Usage:
+* To compile S3CMTF-naive, type following command:
 *   - make naive
 */
 
@@ -85,10 +86,23 @@ char* ResultPath;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//[Input] Lower range x, upper range y
+//[Output] Random double precision number between x and y
+//[Function] Generate random floating point number between given two numbers
 double frand(double x, double y) {//return the random value in (x,y) interval
 	return ((y - x)*((double)rand() / RAND_MAX)) + x;
 }
 
+//[Input] A double precision number x
+//[Output] Absolute value of x
+//[Function] Get absolute value of input x
+double abss(double x) {
+	return x > 0 ? x : -x;
+}
+
+//[Input] Input tensor as a sparse tensor format, and a network constraint as a sparse matrix format
+//[Output] Input tensor X and network constraint Y loaded on memory
+//[Function] Getting all entries of input tensor X and network constraint Y
 void Getting_Input() {
 	FILE *fin = fopen(TrainPath, "r");
 	FILE *ftest = fopen(TestPath, "r");
@@ -167,7 +181,6 @@ void Getting_Input() {
 		fscanf(ftest, "%lf", &testEntries[i]);
 	}
 	printf("Reading Done.\nNorm : %lf\nInitialize\n", trainNorm);
-	//INITIALIZE
 
 	double initVal = pow((maxv / coreNum), (1 / double(order + 1)));
 
@@ -211,13 +224,10 @@ void Getting_Input() {
 	}
 	printf("Elapsed Time:\t%lf\n", (clock() - Timee) / CLOCKS_PER_SEC);
 }
-double abss(double x) {
-	return x > 0 ? x : -x;
-}
 
-//[Input] Input tensor X, initialized core tensor G, and factor matrices A^{(n)} (n=1...N)  
-//[Output] Updated factor matrices A^{(n)} (n=1...N)
-//[Function] Update all factor matrices according to the differential equation.
+//[Input] Input tensor X, initialized core tensor G, and factor matrices U^{(n)} (n=1...N)  
+//[Output] Updated factor matrices U^{(n)} (n=1...N)
+//[Function] Update all factor matrices using the asynchronous SGD method.
 void Update_Factor_Matrices() {
 	int i, temp;
 	//Generate random permutation
@@ -332,21 +342,15 @@ void Update_Factor_Matrices() {
 
 }
 
-//[Input] The index of observable entry X
-//[Output] Reconstructed value of observable entry X
-//[Function] Getting reconstructed value by multiplying core tensor and factor matrices
-
-//[Input] Input tensor X, core tensor G, and factor matrices A^{(n)} (n=1...N)
-//[Output] trainRMSE = 1-||X-X'||/||X|| (Reconstruction error = ||X-X'||)
-//[Function] Calculating fit and reconstruction error in parallel.
+//[Input] The index set of observable entries in X
+//[Output] Train RMSE and Test RMSE 
+//[Function] Getting reconstruction error by subtracting reconstructed values from observed entries
 void Reconstruction() {
 	error = 0;
 #pragma omp parallel for 
 	for (i = 1; i <= trainEntryNum; i++) {
 		errorForTrain[i] = trainEntries[i];
 	}
-
-
 #pragma omp parallel for 
 	for (i = 1; i <= trainEntryNum; i++) {
 		int j;
@@ -400,8 +404,8 @@ void Reconstruction() {
 
 }
 
-//[Input] Updated factor matrices A^{(n)} (n=1...N)
-//[Output] Orthonormal factor matrices A^{(n)} (n=1...N) and updated core tensor G
+//[Input] Updated factor matrices U^{(n)} (n=1...N)
+//[Output] Orthonormal factor matrices U^{(n)} (n=1...N) and updated core tensor G
 //[Function] Orthogonalize all factor matrices and update core tensor simultaneously.
 void Orthogonalize() {
 	Mul[order] = 1;
@@ -509,9 +513,9 @@ void CMTF() {
 	printf("\nTotal update ended.\tFinal Rmse : %lf\tTotal Elapsed time: %lf\n", trainRMSE, omp_get_wtime() - sTime);
 }
 
-//[Input] Updated core tensor G and factor matrices A^{(n)} (n=1...N)
-//[Output] core tensor G in sparse tensor format and factor matrices A^{(n)} (n=1...N) in full-dense matrix format
-//[Function] Writing all factor matrices and core tensor in result path
+//[Input] Factorized results: core tensor G and factor matrices U^{(n)} (n=1...N)
+//[Output] Core tensor G in sparse tensor format and factor matrices U^{(n)} (n=1...N) in full-dense matrix format
+//[Function] Writing all factor matrices and core tensor in the result path
 void Print() {
 	printf("\nWriting factor matrices and core tensor to file...\n");
 	char temp[50];
@@ -547,6 +551,9 @@ void Print() {
 	}
 }
 
+//[Input] History of running time per iteration and train RMSE per iteration
+//[Output] A file in which running time and train RMSE for each iteration is written
+//[Function] Writing running time and train RMSE for each iteration in an output file
 void PrintTime() {
 	printf("\nWriting Time and error to file...\n");
 	char temp[50];
@@ -560,8 +567,8 @@ void PrintTime() {
 }
 
 //[Input] Path of configuration file, input tensor file, and result directory
-//[Output] Core tensor G and factor matrices A^{(n)} (n=1...N)
-//[Function] Performing P-Tucker to factorize partially observable tensor
+//[Output] Core tensor G and factor matrices U^{(n)} (n=1...N)
+//[Function] Performing SNeCT which decomposes a network-constrained tensor
 int main(int argc, char* argv[]) {
 	if (argc == 10) {
 		initialLearnRate = atof(argv[6]);
@@ -615,7 +622,7 @@ int main(int argc, char* argv[]) {
 
 	Print();
 
-	PrintTime();
+	//PrintTime(); //Use for experiment
 
 	return 0;
 }
