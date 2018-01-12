@@ -37,37 +37,39 @@ using namespace arma;
 
 /////////      Pre-defined values      ///////////
 
-#define MAX_ORDER 4							//The max order/way of input tensor
+#define MAX_ORDER 5							//The max order/way of input tensor
 #define MAX_INPUT_DIMENSIONALITY 15000     //The max dimensionality/mode length of input tensor
 #define MAX_CORE_TENSOR_DIMENSIONALITY 30	//The max dimensionality/mode length of core tensor
-#define MAX_ENTRY 250000000						//The max number of entries in input tensor
+#define MAX_ENTRY 250000						//The max number of entries in input tensor
 #define MAX_CORE_SIZE 27000					//The max number of entries in core tensor
 #define MAX_ITER 2000						//The maximum iteration number
+#define MAX_COUPLEDMAT_NUM 10				//The maximum number of coupled matrices
 
 /////////////////////////////////////////////////
 
 
 /////////      Variables           ///////////
 
-int threadsNum, order, dimensionality[MAX_ORDER], coreSize[MAX_ORDER], trainIndex[MAX_ENTRY][MAX_ORDER], testIndex[MAX_ENTRY][MAX_ORDER], trainEntryNum, testEntryNum, coreNum = 1, coreIndex[MAX_CORE_SIZE][MAX_ORDER], coupleDim[MAX_ORDER], isGraph[MAX_ORDER], iterNum, nanFlag = 0, nanCount = 0;
+int threadsNum, order, dimensionality[MAX_ORDER], coreSize[MAX_ORDER], trainIndex[MAX_ENTRY][MAX_ORDER], testIndex[MAX_ENTRY][MAX_ORDER], trainEntryNum, testEntryNum, coreNum = 1, coreIndex[MAX_CORE_SIZE][MAX_ORDER], coupleDim[MAX_COUPLEDMAT_NUM], isGraph[MAX_COUPLEDMAT_NUM], iterNum, nanFlag = 0, nanCount = 0;
 int i, j, k, l, aa, bb, ee, ff, gg, hh, ii, jj, kk, ll;
 int indexPermute[MAX_ORDER*MAX_ENTRY];
 double trainEntries[MAX_ENTRY], testEntries[MAX_ENTRY], sTime, trainRMSE, testRMSE, prevTrainRMSE = -1, minv = 2147483647, maxv = -2147483647, cminv = 2147483647, cmaxv = -2147483647;
 double facMat[MAX_ORDER][MAX_INPUT_DIMENSIONALITY][MAX_CORE_TENSOR_DIMENSIONALITY], coreEntries[MAX_CORE_SIZE];
 
 int numCoupledMat;
-int coupleEntryNum[MAX_ORDER+1];
-int entryNumCum[MAX_ORDER];
+int coupleEntryNum[MAX_COUPLEDMAT_NUM];
+int entryNumCum[MAX_COUPLEDMAT_NUM];
 int totalN = 0;
-int coupleDimensionality[MAX_ORDER];
-int coupleMatIndex[MAX_ORDER][MAX_ENTRY][3];
+int coupleDimensionality[MAX_COUPLEDMAT_NUM];
+int coupleMatIndex[MAX_COUPLEDMAT_NUM][MAX_ENTRY][3];
 double lambdaCouple, lambdaGraph;
-double coupledEntries[MAX_ORDER][MAX_ENTRY];
-double coupleFacMat[MAX_ORDER][MAX_INPUT_DIMENSIONALITY][MAX_CORE_TENSOR_DIMENSIONALITY];
-int coupleWhere[MAX_ORDER][2][MAX_INPUT_DIMENSIONALITY];
+double coupledEntries[MAX_COUPLEDMAT_NUM][MAX_ENTRY];
+double coupleFacMat[MAX_COUPLEDMAT_NUM][MAX_INPUT_DIMENSIONALITY][MAX_CORE_TENSOR_DIMENSIONALITY];
+int coupleWhere[MAX_COUPLEDMAT_NUM][2][MAX_INPUT_DIMENSIONALITY];
 
 double errorForTrain[MAX_ENTRY], errorForTest[MAX_ENTRY], trainNorm, error;
-vector<int> trainWhere[MAX_ORDER][MAX_INPUT_DIMENSIONALITY], testWhere[MAX_ORDER][MAX_CORE_TENSOR_DIMENSIONALITY];
+vector<int> /*trainWhere[MAX_ORDER][MAX_INPUT_DIMENSIONALITY],*/ coreWhere[MAX_ORDER][MAX_CORE_TENSOR_DIMENSIONALITY];
+int trainWhere[MAX_ORDER][MAX_INPUT_DIMENSIONALITY];
 double lambdaReg;
 double initialLearnRate;
 double learnRate;
@@ -136,7 +138,6 @@ void Getting_Input() {
 		fscanf(config, "%s", &CoupledPath[i]);
 		fscanf(config, "%d", &coupleDimensionality[i]);
 		fscanf(config, "%d", &coupleEntryNum[i]);
-		fscanf(config, "%d", &isGraph[i]);
 		entryNumCum[i] = totalN;
 		totalN += coupleEntryNum[i];
 	}
@@ -168,12 +169,17 @@ void Getting_Input() {
 			if (cmaxv < coupledEntries[i][j]) cmaxv = coupledEntries[i][j];
 		}
 	}
+	for (i = 1; i <= order; i++) {
+		for (j = 1; j <= dimensionality[i]; j++) {
+			trainWhere[i][j] = 0;
+		}
+	}
 
 	for (i = 1; i <= trainEntryNum; i++) {
 		for (j = 1; j <= order; j++) {
 			fscanf(fin, "%d", &k);
 			trainIndex[i][j] = k;
-			trainWhere[j][k].push_back(i);
+			trainWhere[j][k]++;
 		}
 		fscanf(fin, "%lf", &trainEntries[i]);
 		trainNorm += trainEntries[i] * trainEntries[i];
@@ -238,7 +244,7 @@ void Initialize() {	//INITIALIZE
 
 			for (j = 1; j <= order; j++) {
 				if (nanCount == 1) {
-					testWhere[j][coreIndex[i][j]].push_back(i);
+					coreWhere[j][coreIndex[i][j]].push_back(i);
 				}
 			}
 		}
@@ -282,7 +288,7 @@ void Initialize() {	//INITIALIZE
 		}
 		for (j = 1; j <= order; j++) {
 			if (nanCount == 1) {
-				testWhere[j][coreIndex[i][j]].push_back(i);
+				coreWhere[j][coreIndex[i][j]].push_back(i);
 			}
 		}
 		printf("Elapsed Time:\t%lf\n", (clock() - Timee) / CLOCKS_PER_SEC);
@@ -331,7 +337,7 @@ void Update_Factor_Matrices() {
 				int column_size = coreSize[jjj];
 				double temp2;
 				for (l = 1; l <= column_size; l++) {
-					int core_nonzeros = testWhere[jjj][l].size();
+					int core_nonzeros = coreWhere[jjj][l].size();
 					int k;
 					Sigma[l] = 0;
 					if (abss(facMat[jjj][trainIndex[current_input_entry][jjj]][l]) < 0.00000001) {
@@ -339,7 +345,7 @@ void Update_Factor_Matrices() {
 						continue;
 					}
 					for (k = 0; k < core_nonzeros; k++) {
-						int current_core_entry = testWhere[jjj][l][k];
+						int current_core_entry = coreWhere[jjj][l][k];
 						Sigma[l] += CoreProducts[current_core_entry];
 					}
 					Sigma[l] /= facMat[jjj][trainIndex[current_input_entry][jjj]][l];
@@ -349,7 +355,7 @@ void Update_Factor_Matrices() {
 					for (k = 1; k <= column_size; k++) {
 						int II = trainIndex[current_input_entry][jjj];
 						facMat[jjj][II][k] = facMat[jjj][II][k]
-							- learnRate*(lambdaReg / (double)(trainWhere[jjj][II].size())*facMat[jjj][II][k]
+							- learnRate*(lambdaReg / (double)(trainWhere[jjj][II])*facMat[jjj][II][k]
 								- (currentVal - current_estimation)*Sigma[k]);
 						if (nonnegativity) {
 							if (facMat[jjj][II][k] <= 0 && (iter>10 || nonnegFlag == 0)) {
@@ -362,7 +368,7 @@ void Update_Factor_Matrices() {
 					for (k = 1; k <= column_size; k++) {
 						int II = trainIndex[current_input_entry][jjj];
 						facMat[jjj][II][k] = facMat[jjj][II][k]
-							- learnRate*(lambdaReg / (double)(trainWhere[jjj][II].size())*facMat[jjj][II][k] / abss(facMat[jjj][II][k])
+							- learnRate*(lambdaReg / (double)(trainWhere[jjj][II])*facMat[jjj][II][k] / abss(facMat[jjj][II][k])
 								- (currentVal - current_estimation)*Sigma[k]);
 						if (nonnegativity) {
 							if (facMat[jjj][II][k] <= 0 && (iter>10 || nonnegFlag == 0)) {
@@ -664,7 +670,7 @@ void CMTF() {
 		if (iter == 12 && nonnegativity == 1 && nonnegFlag == 1) {
 			iter = 1; nonnegFlag = 0;
 		}
-		learnRate = initialLearnRate / (1+alpha*iter);//(1 + initialLearnRate * 100 * iter);
+		learnRate = initialLearnRate / (1 + alpha*iter);//(1 + initialLearnRate * 100 * iter);
 		timeHistory[iter - 1] = omp_get_wtime() - itertime;
 		trainRmseHistory[iter - 1] = trainRMSE;
 		testRmseHistory[iter - 1] = testRMSE;
