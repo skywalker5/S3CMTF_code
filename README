@@ -21,7 +21,7 @@
 	with high accuracy by lock-free parallel SGD updates for factor matricices
 	and core tensor.
     
-	Moreover, S3CMTF has two versions: a basic version S3CMTF-naive and an improved 
+	Moreover, S3CMTF has two versions: a basic version S3CMTF-base and an improved 
 	algorithm S3CMTF-opt.
 	Both outperform the previous coupled matrix-tensor factorization algorithms.
 
@@ -30,7 +30,7 @@
 	This package contains following files
 
 	- Makefile : generate excutable S3CMTF
-	- S3CMTF-naive.cpp : source code of S3CMTF-naive
+	- S3CMTF-base.cpp : source code of S3CMTF-base
 	- S3CMTF-opt.cpp : source code of S3CMTF-opt
 	- demo/ : demo running files
 	  - demo/run.sh : shell script for demo run
@@ -40,7 +40,7 @@
 	  - demo/business_city_toy.matrix : coupled matrix data for business-city relation
 	  - demo/business_category_toy.matrix : coupled matrix data for business-category relation
 	  - demo/config_demo.txt : SNeCT configuration for demo run
-	  - demo/S3CMTF-naive : S3CMTF-naive executable file
+	  - demo/S3CMTF-base : S3CMTF-base executable file
 	  - demo/S3CMTF-opt : S3CMTF-opt executable file
 	- lib/ : library files
 	  - lib/armadillo-7.700.0.tar.xz : armadillo linear algebra library
@@ -75,7 +75,7 @@
 			[Line 6+i]  'Coupled mode' 'Path of i-th coupled matrix' 'Dimensionality of i-th coupled dimension' 'Number of entries of i-th coupled matrix'
 			
 		
-		After editing configuration file, all pre-defined values in source files (S3CMTF-naive.cpp, S3CMTF-opt.cpp) must be adjusted.
+		After editing configuration file, all pre-defined values in source files (S3CMTF-base.cpp, S3CMTF-opt.cpp) must be adjusted.
 		The details of pre-defined values are as follows.
 
 		#define MAX_ORDER 							<- Must be larger than tensor order N
@@ -90,9 +90,9 @@
  	
  	[Step 3] Compile and run S3CMTF
 
-		If you successfully install all libraries, "make" command will create two binary files, which are "S3CMTF-naive" and "S3CMTF-opt".
+		If you successfully install all libraries, "make" command will create two binary files, which are "S3CMTF-base" and "S3CMTF-opt".
 
-		"make S3CMTF-naive" only creates "S3CMTF-naive", and "make S3CMTF-opt" only creates "S3CMTF-opt"
+		"make S3CMTF-base" only creates "S3CMTF-base", and "make S3CMTF-opt" only creates "S3CMTF-opt"
 
 		Two binary files take nine arguments, which are path of configuration file, path of input train tensor file, path of input test tensor file, path of result directory, number of coupled matrices, initial learning rate, lambda_reg, and lambda_c.
 
@@ -104,12 +104,12 @@
 
 4. Demo
 
-	Please follow this procedure to run demo to understand how to run S3CMTF-naive and S3CMTF-opt.
+	Please follow this procedure to run demo to understand how to run S3CMTF-base and S3CMTF-opt.
 
 	1. cd demo
 	2. sh run.sh
 
-	Then, S3CMTF-naive and S3CMTF-opt are run on a demo tensor and three coupled matrices. Demo tensor has a size of 10,000x10,000x100 with 9,991 observable entries and splitted into train and test tensor.
+	Then, S3CMTF-base and S3CMTF-opt are run on a demo tensor and three coupled matrices. Demo tensor has a size of 10,000x10,000x100 with 9,991 observable entries and splitted into train and test tensor.
 	After execution, you can see factorization results in 'result' directory, while the intermediate process is presented on screen. following output files are generated.
 	'demo/result/FACTOR<n>' shows the n-th factor matrix. The factor matrix is a stack of vectors representing latent factor weights of each entity.
 	'demo/result/CFACTOR<n>' shows the n-th coupled factor matrix. The coupled factor matrix is a stack of vectors representing latent factor weights of each coupled entity.
