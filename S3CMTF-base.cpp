@@ -1,5 +1,5 @@
 /*
-* @file        S3CMTF-naive.cpp
+* @file        S3CMTF-base.cpp
 * @author      Dongjin Choi (skywalker5@snu.ac.kr), Seoul National University
 * @author      Jun-Gi Jang (elnino4@snu.ac.kr), Seoul National University
 * @author      U Kang (ukang@snu.ac.kr), Seoul National University
@@ -12,8 +12,8 @@
 * For commercial purposes, please contact the author.
 *
 * Usage:
-* To compile S3CMTF-naive, type following command:
-*   - make naive
+* To compile S3CMTF-base, type following command:
+*   - make base
 */
 
 /////    Header files     /////
