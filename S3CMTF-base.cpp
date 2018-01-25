@@ -13,6 +13,7 @@
 *
 * File: S3CMTF-base.cpp
 *   - The base version of S3CMTF. S3CMTF-base conducts CMTF to the Tucker format with naive parallel SGD.
+*
 * Usage:
 * To compile S3CMTF-base, type following command:
 *   - make base
