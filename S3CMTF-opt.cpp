@@ -11,6 +11,8 @@
 * This software is free of charge under research purposes.
 * For commercial purposes, please contact the author.
 *
+* File: S3CMTF-opt.cpp
+*   - The time-optimized version of S3CMTF. S3CMTF-opt improves speed of S3CMTF-base by carefully storing intermediate data.
 * Usage:
 * To compile S3CMTF-opt, type following command:
 *   - make opt
